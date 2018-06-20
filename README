@@ -1,0 +1,23 @@
+Author - Hemal Naik 
+
+The code is supposed to be using the CUB 200 bird annotations for the bounding box dependent bird detection problem. 
+-- We need to create a pipeline, which converts the annotation in *.record format for compatibility with the object detection API of Tensor flow. 
+
+-- We write the detector based on the data for bird annotation. Use the detector on annotations collected from pigeons and run directly through bird dataset. 
+
+
+------------------------------ File info in the repo 
+1. training_command_help : Pre written path for training, evaluation and storing the trained model. The file helps writing paths on one place. 
+
+2. create_label.py : The file creates a *.pbtxt file for label and respective id for the training 
+
+3. create_tf_record : It creates *.record file for the tensor flow object detection API. Both for training and evaluation. Command line function possible (not tested). 
+
+4. random.csv	: Database .csv format created from the original CUB dataset, it combines information of images, size and properties. 
+
+5. test_to_csv : File used to combine the data given in CUB dataset. The annotation and image infomation is spread across many files. We combined the information and output in one csv file which is random.csv 
+
+6 tracking.ipynb : The file is supposed to have all the features for tracking, evaluaion and training. The algorithm should output box locations on the input images using the trained code. 
+
+
+
