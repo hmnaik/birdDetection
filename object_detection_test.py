@@ -217,7 +217,8 @@ while (cap.isOpened()):
     
     key = cv2.waitKey(10)
     if(key == ord('q')):
-        #cv2.destroyAllWindows()
+        #cv2.destroyAllWindows()#
+        cap.release() # Added release option
         break
 
 

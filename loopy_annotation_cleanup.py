@@ -15,8 +15,8 @@ def copyContent(annotationData,revisedAnnotation,video):
 
     # Name of video
     baseDirectory = os.path.dirname(video)
-    folderName = os.path.splitext(os.path.basename(video))[0]
-    imageDir = os.path.join(baseDirectory , folderName)
+    videoName = os.path.splitext(os.path.basename(video))[0]
+    imageDir = os.path.join(baseDirectory , videoName)
     if not os.path.exists(imageDir):
         os.mkdir(imageDir)
 
@@ -25,11 +25,29 @@ def copyContent(annotationData,revisedAnnotation,video):
     print(cap.isOpened())
     counter = 0
 
+    # We loop through all the columns and pick the relevant frames, to store the csv file relevant to that
     for i in range(revisedAnnotation.shape[0]):
         revisedAnnotation.loc[i,"width"] =  float(annotationData.loc[i,"x1"]) - float(annotationData.loc[i,"x0"])
-        revisedAnnotation.loc[i, "height"] = float(annotationData.loc[i, "y1"]) - float(annotationData.loc[i, "y0"])
-        frameNo = int((annotationData.loc[i, "y1"]))
+        revisedAnnotation.loc[i, "height"] = float(annotationData.loc[i, "y2"]) - float(annotationData.loc[i, "y1"])
+        frameNo = int((annotationData.loc[i, "frame_count"]))
+        cap.set(cv.CAP_PROP_POS_FRAMES, frameNo)
+        imageName = videoName + '_' + str(frameNo) + '.jpg'
+        imagePath = os.path.join(imageDir, imageName)
+        ret, frame = cap.read()
 
+        if ret is True:
+            h, w, c = frame.shape
+            revisedAnnotation.loc[i, "img_width"] = w
+            revisedAnnotation.loc[i, "img_height"] = h
+            revisedAnnotation.loc[i, "Channel"] = c
+            # Saving hierarchial names --> videoName/imageName --> Path X:\xx\xx\videoName\images_frameNo
+            revisedAnnotation.loc[i, "img_name"] = videoName + '/' +imageName
+            cv.imwrite(imagePath, frame)
+            cv.imshow("TestImage", frame)
+
+    # Release the video footage
+    cap.release()
+    cv.destroyAllWindows()
 
 def createDataBase(annotation,video):
     print('Creating Database')
@@ -40,18 +58,13 @@ def createDataBase(annotation,video):
     annotationData.columns = ["index","annotation_id","class","date","frame_count","frame_number","frame_timestamp","name","oid","type","video_id","x","x0","x1","x2","x3","xform","y","y0","y1","y2","y3"]
     annotationData = annotationData.loc[1:,:]
     annotationData.reset_index(inplace = True)
-    print(annotationData.head(3))
 
     revisedAnnotationColumnFormat = ["img_id","x","y","width","height","img_name","img_width","img_height","Channel","train_status"]
     revisedAnnotation = pd.DataFrame( np.zeros((annotationData.shape[0],10)),
                                       columns = revisedAnnotationColumnFormat )
-    print(revisedAnnotation.head(3))
-
-    print(annotationData.shape)
-    print(revisedAnnotation.shape)
 
     copyContent(annotationData,revisedAnnotation,video)
-    print(revisedAnnotation)
+    return revisedAnnotation
 
 
 ####
@@ -59,14 +72,15 @@ DATASET_PATH = 'D:/BirdTrackingProject/MPI_Dataset'
 video_dir =  DATASET_PATH + '/videoDataset/'
 annotation_dir = DATASET_PATH + '/Annotations/'
 
-videoFiles = glob.glob(video_dir + '*')
-annotationFiles = glob.glob(annotation_dir + '*')
+videoFiles = glob.glob(video_dir + '*.mp4')
+annotationFiles = glob.glob(annotation_dir + '*.csv')
 
 for files in videoFiles:
     print(files)
 
 if len(videoFiles) != len(annotationFiles):
     raise ('Error!! Video file and Annotations files do not match')
+
 
 
 for annotation in annotationFiles:
@@ -77,6 +91,8 @@ for annotation in annotationFiles:
         videoFileNameWoExt = os.path.splitext(videoFileName)[0]
         if videoFileNameWoExt in annotationFileNameWoExt:
             combinedAnnotation = createDataBase(annotation,video) # Send both file names
+            annotationFileName = DATASET_PATH + '/' + videoFileNameWoExt + '.csv'
+            combinedAnnotation.to_csv( annotationFileName )
 
 
 # First read the folder for the video information
