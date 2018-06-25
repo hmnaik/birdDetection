@@ -9,11 +9,19 @@ import cv2 as cv
 from pandas.io.sas.sas7bdat import _column
 
 
-def copyContent(annotationData,revisedAnnotation,video):
+def copyContent(annotationData,revisedAnnotation,video,trainRatio):
 
     revisedAnnotation.loc[:,"img_id"] = annotationData.loc[:,"index"]
     revisedAnnotation["x" ] = annotationData["x0"]
     revisedAnnotation["y"] = annotationData["y0"]
+    revisedAnnotation["training_status"] = 1
+
+    # Compute the distribution required for the training and test samples
+    noOfTrainingSamples = int( trainRatio * revisedAnnotation.shape[0]) # Compute training sample for distribution
+    noOfEvalSamples = revisedAnnotation.shape[0] - noOfTrainingSamples # compute the eval set
+    # Default training_status is 1 for combineData.loc[:, "training_status"] so we reassign some to 0
+    revisedAnnotation.loc[0:noOfEvalSamples,"training_status"] = 0
+    np.random.shuffle(revisedAnnotation.loc[:,"training_status"]) # Shuffle the last column to get random combination of test
 
     # Name of video
     baseDirectory = os.path.dirname(video)
@@ -23,7 +31,6 @@ def copyContent(annotationData,revisedAnnotation,video):
         os.mkdir(imageDir)
 
     cap = cv.VideoCapture(video)
-    print(cap.isOpened())
 
     # We loop through all the columns and pick the relevant frames, to store the csv file relevant to that
     for i in range(revisedAnnotation.shape[0]):
@@ -46,13 +53,15 @@ def copyContent(annotationData,revisedAnnotation,video):
             # Saving the images for the training
             if SAVE_JPEG_IMG: # Check to avoid repeated generation of files
                 cv.imwrite(imagePath, frame)
+
+            if SHOW_IMAGES: # Check if the display image option is enabled
                 cv.imshow("TestImage", frame)
 
     # Release the video footage
     cap.release()
     cv.destroyAllWindows()
 
-def createDataBase(annotation,video):
+def createDataBase(annotation, video, trainRatio):
     print('Creating Database')
 
     # Read dataframe for the annotation file and c
@@ -66,13 +75,13 @@ def createDataBase(annotation,video):
     #revisedAnnotation = pd.DataFrame( np.zeros((annotationData.shape[0],len(revisedAnnotationColumnFormat))),
                                       # columns = revisedAnnotationColumnFormat )
     revisedAnnotation = pd.DataFrame(columns = revisedAnnotationColumnFormat )
-    print(revisedAnnotation)
-    copyContent(annotationData,revisedAnnotation,video)
+    copyContent(annotationData,revisedAnnotation,video,trainRatio)
     return revisedAnnotation
 
 
 ####
 SAVE_JPEG_IMG = False
+SHOW_IMAGES = False
 DATA_FORMAT = ["img_id","x","y","width","height","img_name","img_width","img_height","Channel","train_status"]
 
 # The function is used to initiate the function when it is called directly from console
@@ -86,6 +95,10 @@ def main(DATASET_PATH):
     # Grab name of the files given in the header folder
     videoFiles = glob.glob(video_dir + '*.mp4')
     annotationFiles = glob.glob(annotation_dir + '*.csv')
+
+    # Creating division between training and test set
+    trainRatio = 0.6
+
 
     for files in videoFiles:
         print(files)
@@ -103,15 +116,26 @@ def main(DATASET_PATH):
             videoFileName = os.path.basename(video)
             videoFileNameWoExt = os.path.splitext(videoFileName)[0]
             if videoFileNameWoExt in annotationFileNameWoExt:
-                combinedAnnotation = createDataBase(annotation,video) # Send both file names
+                combinedAnnotation = createDataBase(annotation,video, trainRatio) # Send both file names
                 annotationFileName = DATASET_PATH + '/' + videoFileNameWoExt + '.csv'
                 combinedAnnotation.to_csv( annotationFileName, index = False )
                 combineData = combineData.append(combinedAnnotation)
 
-
     # Change the first column to have proper ID assigned to images
-    combineData.iloc[:,0] = list(range(combineData.shape[0]))
-    combineData.to_csv(combinedDataFileName, index = False)
+    combineData.loc[:,"img_id"] = list(range(combineData.shape[0]))
+
+
+    ## Compute the distribution required for the training and test samples --> The method has been moved up to individual
+    ## level. Now the status is copied directly when the file is created
+
+    #noOfTrainingSamples = int( trainRatio * combineData.shape[0]) # Compute training sample for distribution
+    #noOfEvalSamples = combineData.shape[0] - noOfTrainingSamples # compute the eval set
+    ## Default training_status is 1 for combineData.loc[:, "training_status"] so we reassign some to 0
+    #combineData.loc[0:noOfEvalSamples,"training_status"] = 0
+    #np.random.shuffle(combineData.loc[:,"training_status"]) # Shuffle the last column to get random combination of test
+
+    combineData.to_csv(combinedDataFileName, index=False)
+
 
 # The function is called only if the file is called on its own, this enables using files independently
 if __name__ == '__main__':
