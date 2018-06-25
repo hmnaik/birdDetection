@@ -244,6 +244,3 @@ if __name__ == '__main__':
     tf.app.run()
 else:
     print('File called out by external sources/program.')
-
-
-
