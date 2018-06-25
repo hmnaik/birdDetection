@@ -14,14 +14,14 @@ def copyContent(annotationData,revisedAnnotation,video,trainRatio):
     revisedAnnotation.loc[:,"img_id"] = annotationData.loc[:,"index"]
     revisedAnnotation["x" ] = annotationData["x0"]
     revisedAnnotation["y"] = annotationData["y0"]
-    revisedAnnotation["training_status"] = 1
+    revisedAnnotation["train_status"] = 1
 
     # Compute the distribution required for the training and test samples
     noOfTrainingSamples = int( trainRatio * revisedAnnotation.shape[0]) # Compute training sample for distribution
     noOfEvalSamples = revisedAnnotation.shape[0] - noOfTrainingSamples # compute the eval set
     # Default training_status is 1 for combineData.loc[:, "training_status"] so we reassign some to 0
-    revisedAnnotation.loc[0:noOfEvalSamples,"training_status"] = 0
-    np.random.shuffle(revisedAnnotation.loc[:,"training_status"]) # Shuffle the last column to get random combination of test
+    revisedAnnotation.loc[0:noOfEvalSamples,"train_status"] = 0
+    np.random.shuffle(revisedAnnotation["train_status"]) # Shuffle the last column to get random combination of test
 
     # Name of video
     baseDirectory = os.path.dirname(video)
@@ -83,6 +83,7 @@ def createDataBase(annotation, video, trainRatio):
 SAVE_JPEG_IMG = False
 SHOW_IMAGES = False
 DATA_FORMAT = ["img_id","x","y","width","height","img_name","img_width","img_height","Channel","train_status"]
+DATASET_PATH = 'D:/BirdTrackingProject/MPI_Dataset'
 
 # The function is used to initiate the function when it is called directly from console
 def main(DATASET_PATH):
