@@ -6,6 +6,7 @@ import glob
 import os
 import numpy as np
 import cv2 as cv
+import logging
 from pandas.io.sas.sas7bdat import _column
 
 
@@ -84,25 +85,41 @@ SAVE_JPEG_IMG = False
 SHOW_IMAGES = False
 DATA_FORMAT = ["img_id","x","y","width","height","img_name","img_width","img_height","Channel","train_status"]
 DATASET_PATH = 'D:/BirdTrackingProject/MPI_Dataset'
+VIDEO_PATH_EXT = 'videos'
+ANNOTATION_PATH_EXT = 'annotations'
+IMG_DIR = 'images'
+ANNOTATION_DIR = 'annotation_converted'
 
 # The function is used to initiate the function when it is called directly from console
 def main(DATASET_PATH):
 
+    # Create directory to store the converted dataset
+    images_dir = os.path.join(DATASET_PATH, IMG_DIR)
+    annotation_conv_dir = os.path.join(DATASET_PATH, ANNOTATION_DIR)
+
+    if not os.path.exists(images_dir):
+        logging.info("Creating directory to store images")
+        os.mkdir(images_dir)
+
+    if not os.path.exists(annotation_conv_dir):
+        logging.info("Creating director to store annotations")
+        os.mkdir(annotation_conv_dir)
+
     # Derive video and annotation path from the given directory path
-    video_dir =  DATASET_PATH + '/videoDataset/'
-    annotation_dir = DATASET_PATH + '/Annotations/'
-    combinedDataFileName = "loopBio_dataset.csv"
+    video_dir =  os.path.join( DATASET_PATH , VIDEO_PATH_EXT )
+    annotation_dir = os.path.join( DATASET_PATH , ANNOTATION_PATH_EXT )
+
+    # Save the combine dataset file in the annotation folder
+    combinedDataFileName = os.path.join(annotation_dir,"combine_dataset.csv")
+
 
     # Grab name of the files given in the header folder
-    videoFiles = glob.glob(video_dir + '*.mp4')
-    annotationFiles = glob.glob(annotation_dir + '*.csv')
+    videoFiles = glob.glob( os.path.join( video_dir , '*.mp4')  )
+    annotationFiles = glob.glob( os.path.join(annotation_dir , '*.csv' ) )
+
 
     # Creating division between training and test set
     trainRatio = 0.6
-
-
-    for files in videoFiles:
-        print(files)
 
     if len(videoFiles) != len(annotationFiles):
         raise ('Error!! Video file and Annotations files do not match')
@@ -128,6 +145,7 @@ def main(DATASET_PATH):
 
     ## Compute the distribution required for the training and test samples --> The method has been moved up to individual
     ## level. Now the status is copied directly when the file is created
+    ## ------------- Uncomment the code to do global training/eval dataset ----------- #############
 
     #noOfTrainingSamples = int( trainRatio * combineData.shape[0]) # Compute training sample for distribution
     #noOfEvalSamples = combineData.shape[0] - noOfTrainingSamples # compute the eval set
