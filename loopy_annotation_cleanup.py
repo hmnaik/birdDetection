@@ -10,7 +10,7 @@ import logging
 from pandas.io.sas.sas7bdat import _column
 
 
-def copyContent(annotationData,revisedAnnotation,video,trainRatio):
+def copyContent(annotationData, revisedAnnotation, video, trainRatio):
 
     revisedAnnotation.loc[:,"img_id"] = annotationData.loc[:,"index"]
     revisedAnnotation["x" ] = annotationData["x0"]
@@ -20,12 +20,14 @@ def copyContent(annotationData,revisedAnnotation,video,trainRatio):
     # Compute the distribution required for the training and test samples
     noOfTrainingSamples = int( trainRatio * revisedAnnotation.shape[0]) # Compute training sample for distribution
     noOfEvalSamples = revisedAnnotation.shape[0] - noOfTrainingSamples # compute the eval set
+
     # Default training_status is 1 for combineData.loc[:, "training_status"] so we reassign some to 0
     revisedAnnotation.loc[0:noOfEvalSamples,"train_status"] = 0
     np.random.shuffle(revisedAnnotation["train_status"]) # Shuffle the last column to get random combination of test
 
-    # Name of video
+    # Derive name for the new directory
     baseDirectory = os.path.dirname(video)
+    baseDirectory = os.path.join( DATASET_PATH, IMG_DIR) # Getting default path name
     videoName = os.path.splitext(os.path.basename(video))[0]
     imageDir = os.path.join(baseDirectory , videoName)
     if not os.path.exists(imageDir):
@@ -39,8 +41,8 @@ def copyContent(annotationData,revisedAnnotation,video,trainRatio):
         revisedAnnotation.loc[i, "height"] = float(annotationData.loc[i, "y2"]) - float(annotationData.loc[i, "y1"])
         frameNo = int((annotationData.loc[i, "frame_count"]))
         cap.set(cv.CAP_PROP_POS_FRAMES, frameNo)
-        imageName = videoName + '_' + str(frameNo) + '.jpg'
-        imagePath = os.path.join(imageDir, imageName)
+        imageName = videoName + '_' + str(frameNo) + '.jpg' # Get the name of the image to be saved
+        imagePath = os.path.join( imageDir , imageName )
         ret, frame = cap.read()
 
         if ret is True:
@@ -48,7 +50,7 @@ def copyContent(annotationData,revisedAnnotation,video,trainRatio):
             revisedAnnotation.loc[i, "img_width"] = w
             revisedAnnotation.loc[i, "img_height"] = h
             revisedAnnotation.loc[i, "Channel"] = c
-            # Saving hierarchial names --> videoName/imageName --> Path X:\xx\xx\videoName\images_frameNo
+            # Saving hierarchial names --> videoName/imageName --> Path X:/xx/xx/videoName/images_frameNo
             revisedAnnotation.loc[i, "img_name"] = videoName + '/' +imageName
 
             # Saving the images for the training
@@ -62,40 +64,59 @@ def copyContent(annotationData,revisedAnnotation,video,trainRatio):
     cap.release()
     cv.destroyAllWindows()
 
-def createDataBase(annotation, video, trainRatio):
+def createDataBase(annotation):
     print('Creating Database')
 
     # Read dataframe for the annotation file and c
     annotationFile = open(annotation, 'r')
     annotationData = pd.read_csv(annotationFile, sep=",", header=None)
+    annotationData.columns = ["index", "annotation_id", "class", "date", "frame_count", "frame_number",
+                              "frame_timestamp", "name", "oid", "type", "video_id", "x", "x0", "x1", "x2", "x3",
+                              "xform", "y", "y0", "y1", "y2", "y3"]
+    annotationData = annotationData.loc[1:, :]
+    annotationData.reset_index(inplace=True)  # Reset of index is important, otherwise the first row element starts from 1, row 0 is deleted for good unless reset.
+
+    revisedAnnotationColumnFormat = ["img_id", "x", "y", "width", "height", "img_name", "img_width", "img_height",
+                                     "Channel", "train_status"]
+    revisedAnnotation = pd.DataFrame(columns=revisedAnnotationColumnFormat)
+
+    return annotationData,revisedAnnotation
+
+def createDataBase(annotation, video, trainRatio):
+    print('Creating Database')
+
+    # Read dataframe for the annotation file and c
+    annotationFile = open(annotation, 'r')
+    annotationData = pd.read_csv(annotationFile, sep = ",", header=None)
     annotationData.columns = ["index","annotation_id","class","date","frame_count","frame_number","frame_timestamp","name","oid","type","video_id","x","x0","x1","x2","x3","xform","y","y0","y1","y2","y3"]
     annotationData = annotationData.loc[1:,:]
     annotationData.reset_index(inplace = True) # Reset of index is important, otherwise the first row element starts from 1, row 0 is deleted for good unless reset.
 
     revisedAnnotationColumnFormat = ["img_id","x","y","width","height","img_name","img_width","img_height","Channel","train_status"]
-    #revisedAnnotation = pd.DataFrame( np.zeros((annotationData.shape[0],len(revisedAnnotationColumnFormat))),
-                                      # columns = revisedAnnotationColumnFormat )
     revisedAnnotation = pd.DataFrame(columns = revisedAnnotationColumnFormat )
-    copyContent(annotationData,revisedAnnotation,video,trainRatio)
+    # Copy content from loopy annotation to converted annotation files
+    copyContent(annotationData, revisedAnnotation, video, trainRatio)
+
     return revisedAnnotation
 
-
 ####
-SAVE_JPEG_IMG = False
+SAVE_JPEG_IMG = True
 SHOW_IMAGES = False
 DATA_FORMAT = ["img_id","x","y","width","height","img_name","img_width","img_height","Channel","train_status"]
-DATASET_PATH = 'D:/BirdTrackingProject/MPI_Dataset'
+#DATASET_PATH = 'D:/BirdTrackingProject/MPI_Dataset'
+
+# Can remain static and global
 VIDEO_PATH_EXT = 'videos'
 ANNOTATION_PATH_EXT = 'annotations'
 IMG_DIR = 'images'
-ANNOTATION_DIR = 'annotation_converted'
+ANNOTATION_CONV_DIR = 'annotation_converted'
 
 # The function is used to initiate the function when it is called directly from console
 def main(DATASET_PATH):
 
     # Create directory to store the converted dataset
     images_dir = os.path.join(DATASET_PATH, IMG_DIR)
-    annotation_conv_dir = os.path.join(DATASET_PATH, ANNOTATION_DIR)
+    annotation_conv_dir = os.path.join(DATASET_PATH, ANNOTATION_CONV_DIR)
 
     if not os.path.exists(images_dir):
         logging.info("Creating directory to store images")
@@ -110,7 +131,7 @@ def main(DATASET_PATH):
     annotation_dir = os.path.join( DATASET_PATH , ANNOTATION_PATH_EXT )
 
     # Save the combine dataset file in the annotation folder
-    combinedDataFileName = os.path.join(annotation_dir,"combine_dataset.csv")
+    combinedDataFileName = os.path.join(annotation_conv_dir,"combine_dataset.csv")
 
 
     # Grab name of the files given in the header folder
@@ -134,8 +155,11 @@ def main(DATASET_PATH):
             videoFileName = os.path.basename(video)
             videoFileNameWoExt = os.path.splitext(videoFileName)[0]
             if videoFileNameWoExt in annotationFileNameWoExt:
-                combinedAnnotation = createDataBase(annotation,video, trainRatio) # Send both file names
-                annotationFileName = DATASET_PATH + '/' + videoFileNameWoExt + '.csv'
+                #annotationData, combinedAnnotation = createDataBase(annotation)
+                #combinedAnnotation = copyContent(annotation, combinedAnnotation, video, trainRatio)
+                combinedAnnotation = createDataBase(annotation, video, trainRatio) # Send both file names
+                # Create the file for .csv
+                annotationFileName = os.path.join( annotation_conv_dir , videoFileNameWoExt + '.csv')
                 combinedAnnotation.to_csv( annotationFileName, index = False )
                 combineData = combineData.append(combinedAnnotation)
 
